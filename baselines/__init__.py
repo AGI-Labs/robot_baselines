@@ -1,5 +1,6 @@
 import baselines.net as net
-from baselines.util import Metric
+import baselines.agents as agents
+from baselines.util import Metric, img2tensor
 
 
 def get_network(name):
