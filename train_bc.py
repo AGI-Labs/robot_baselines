@@ -51,4 +51,4 @@ for e in range(args.EPOCHS):
     print('epoch {} \t train {:.6f} \t test {:.6f}'.format(e, train_metric.mean, test_metric.mean))
 
 policy = policy.cpu()
-torch.save(features.state_dict(), args.output_folder + '/policy.pt')
+torch.save(policy.state_dict(), args.output_folder + '/policy.pt')
