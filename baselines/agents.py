@@ -16,6 +16,23 @@ class ClosedLoopAgent(Agent):
         super().__init__()
         self._pi = policy_network
 
-
     def forward(self, image, robot_state):
         return self._pi(image, robot_state)
+
+
+class OpenLoopAgent(Agent):
+    def __init__(self, policy_network):
+        super().__init__()
+        self._pi = policy_network
+        self._t, self._cache = 0, None
+
+    def reset(self):
+        self._t, self._cache = 0, None
+    
+    def forward(self, image, robot_state):
+        if self._t == 0:
+            self._cache = self._pi(image, robot_state).detach()
+        elif self._t >= self._cache.shape[1]:
+            raise ValueError
+        self._t += 1
+        return self._cache[:,self._t-1].detach()
