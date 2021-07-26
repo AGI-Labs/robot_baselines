@@ -2,11 +2,12 @@ import torch
 import numpy as np
 import torch.nn as nn
 import torch.nn.functional as F
+from .dmp import DMPIntegrator, DMPParameters
 
 
-def _linear(in_dim, out_dim):
+def _linear(in_dim, out_dim, gain=1):
     layer = nn.Linear(in_dim, out_dim)
-    nn.init.orthogonal_(layer.weight.data, gain=1)
+    nn.init.orthogonal_(layer.weight.data, gain=gain)
     nn.init.constant_(layer.bias.data, 0)
     return layer
 
@@ -49,16 +50,45 @@ class PointPredictor(nn.Module):
 
 
 class CNNPolicy(nn.Module):
-    def __init__(self, features, sdim=7, adim=7):
+    def __init__(self, features, adim=7, mean=None, std=None):
         super().__init__()
         self._features = features
-        f1, a1 = _linear(256 + sdim, 128), nn.Tanh()
-        f2 = _linear(128, adim)
+        f1, a1 = _linear(256, 32), nn.Tanh()
+        f2 = _linear(32, adim)
         self._pi = nn.Sequential(f1, a1, f2)
+
+        self._norm = nn.BatchNorm1d(adim)
+        self._norm.weight.data[:] = torch.from_numpy(std) if std is not None else 1.0
+        self._norm.bias.data[:] = torch.from_numpy(mean) if mean is not None else 0.0
     
-    def forward(self, images, states):
+    def forward(self, images, _):
         feat = self._features(images)
-        return self._pi(torch.cat((feat, states), 1))
+        return self._norm(self._pi(feat))
+
+
+class DMPNet(nn.Module):
+    def __init__(self, features, N=270, T=300, tau=1, rbf='gaussian', a_z=15, adim=7, scale=5):
+        super().__init__()
+        
+        output_size = (N+1) * adim
+        self.DMPparam = DMPParameters(N, tau, tau / float(T), adim, None, a_z=a_z)
+        self.func = DMPIntegrator(rbf=rbf, only_g=False, az=False)
+        self.register_buffer('DMPp', self.DMPparam.data_tensor)
+        self.register_buffer('param_grad', self.DMPparam.grad_tensor)
+
+        self.features = features
+        self.fc_last = _linear(256, output_size, gain=scale)
+        self._adim = adim
+        
+   
+    def forward(self, images, robot_state):
+        h = self.features(images)
+        output = self.fc_last(h)
+        y0 = robot_state[:, :self._adim].reshape(-1)
+        dy0 = torch.ones_like(y0).to(robot_state.device) * 0.05
+        y, _, __ = self.func.forward(output, self.DMPp, self.param_grad, None, y0, dy0)
+        y = y.view(images.shape[0], self._adim, -1)
+        return y.transpose(1, 2)[:,1:]
 
 
 def restore_pretrain(model):
