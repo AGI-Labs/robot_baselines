@@ -62,12 +62,22 @@ def pretext_dataset(fname, batch_size):
     return train_data, test_data, data['mean_train_pos']
 
 
-def state_action_dataset(fname, batch_size):
+def state_action_dataset(fname, batch_size, H=30):
     data = np.load(fname)
     def _flat_traj(key):
-        old_shape = list(data[key].shape)
-        shape = [old_shape[0] * old_shape[1]] + old_shape[2:]
-        return data[key].reshape(tuple(shape))
+        d = data[key]
+        if 'action' in key:
+            B, T, A = d.shape
+            batched = []
+            for t in range(T - H):
+                batched.append(d[:,t:t+H])
+            batched = np.concatenate(batched, 0)
+        else:
+            batched = []
+            for t in range(d.shape[1] - H):
+                batched.append(d[:,t])
+            batched = np.concatenate(batched, 0)
+        return batched
 
     # load dataset
     imgs, states, actions = [_flat_traj(k) for k in 

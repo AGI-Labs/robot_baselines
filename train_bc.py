@@ -15,7 +15,7 @@ parser.add_argument('--EPOCHS', default=50, type=int)
 parser.add_argument('--LR', default=1e-3, type=float)
 parser.add_argument('--SAVE_FREQ', default=5, type=int)
 args = parser.parse_args()
-train, test, (mean, std) = baselines.datasets.state_action_dataset(args.input_data, args.BATCH_SIZE)
+train, test, _ = baselines.datasets.state_action_dataset(args.input_data, args.BATCH_SIZE)
 if not os.path.exists(args.output_folder):
     os.makedirs(args.output_folder)
 else:
@@ -25,7 +25,7 @@ else:
 # build network and restore weights
 features = baselines.get_network(args.features)
 features.load_state_dict(torch.load(args.pretrained))
-policy = baselines.net.CNNPolicy(features, mean=mean, std=std).cuda()
+policy = baselines.net.CNNPolicy(features).cuda()
 
 
 # build optim

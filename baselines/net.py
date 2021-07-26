@@ -50,20 +50,17 @@ class PointPredictor(nn.Module):
 
 
 class CNNPolicy(nn.Module):
-    def __init__(self, features, adim=7, mean=None, std=None):
+    def __init__(self, features, adim=7, H=30):
         super().__init__()
         self._features = features
-        f1, a1 = _linear(256, 32), nn.Tanh()
-        f2 = _linear(32, adim)
+        f1, a1 = _linear(256, 256), nn.Tanh()
+        f2 = _linear(256, adim * H)
         self._pi = nn.Sequential(f1, a1, f2)
-
-        self._norm = nn.BatchNorm1d(adim)
-        self._norm.weight.data[:] = torch.from_numpy(std) if std is not None else 1.0
-        self._norm.bias.data[:] = torch.from_numpy(mean) if mean is not None else 0.0
+        self._adim, self._H = adim, H
     
     def forward(self, images, _):
         feat = self._features(images)
-        return self._norm(self._pi(feat))
+        return self._pi(feat).reshape((-1, self._H, self._adim))
 
 
 class DMPNet(nn.Module):
