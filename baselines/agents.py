@@ -12,7 +12,7 @@ class Agent(nn.Module):
         raise NotImplementedError
 
 class ClosedLoopAgent(Agent):
-    def __init__(self, policy_network, H=0):
+    def __init__(self, policy_network, H=30):
         super().__init__()
         self._pi = policy_network
         self._t, self._cache, self._H = 0, None, H
