@@ -50,7 +50,7 @@ class PointPredictor(nn.Module):
 
 
 class CNNPolicy(nn.Module):
-    def __init__(self, features, adim=7, H=30):
+    def __init__(self, features, adim=7, H=1):
         super().__init__()
         self._features = features
         f1, a1 = _linear(256, 256), nn.Tanh()
@@ -60,6 +60,21 @@ class CNNPolicy(nn.Module):
     
     def forward(self, images, _):
         feat = self._features(images)
+        if self._H > 1:
+            return self._pi(feat).reshape((-1, self._H, self._adim))
+        return self._pi(feat).reshape((-1, self._adim))
+
+class CNNGoalPolicy(nn.Module):
+    def __init__(self, features, adim=7, H=1):
+        super().__init__()
+        self._features = features
+        f1, a1 = _linear(512, 256), nn.Tanh()
+        f2 = _linear(256, adim * H)
+        self._pi = nn.Sequential(f1, a1, f2)
+        self._adim, self._H = adim, H
+    
+    def forward(self, images, goal, _):
+        feat = torch.cat((self._features(images), self._features(goal)), 1)
         return self._pi(feat).reshape((-1, self._H, self._adim))
 
 

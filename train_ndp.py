@@ -16,7 +16,7 @@ parser.add_argument('--EPOCHS', default=5000, type=int)
 parser.add_argument('--LR', default=1e-3, type=float)
 parser.add_argument('--SAVE_FREQ', default=1000, type=int)
 parser.add_argument('--N', default=270, type=int)
-parser.add_argument('--T', default=300, type=int)
+parser.add_argument('--T', default=299, type=int)
 
 
 args = parser.parse_args()
