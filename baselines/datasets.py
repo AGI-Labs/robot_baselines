@@ -51,6 +51,20 @@ class ImageStateRegression(ImageRegression):
         return img, state, target
 
 
+class GoalCondBC(ImageStateRegression):
+    def __init__(self, images, goals, states, actions, transform=None):
+        super().__init__(images, states, actions, transform)
+        self._goal = goals.copy()
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        img, state, actions = super().__getitem__(idx)
+        goal = Image.fromarray(self._goal[idx])
+        goal = self._transform(goal) if self._transform else goal
+        return img, goal, state, actions
+
+
 def pretext_dataset(fname, batch_size):
     data = np.load(fname)
 
@@ -65,19 +79,9 @@ def pretext_dataset(fname, batch_size):
 def state_action_dataset(fname, batch_size, H=30):
     data = np.load(fname)
     def _flat_traj(key):
-        d = data[key]
-        if 'action' in key:
-            B, T, A = d.shape
-            batched = []
-            for t in range(T - H):
-                batched.append(d[:,t:t+H])
-            batched = np.concatenate(batched, 0)
-        else:
-            batched = []
-            for t in range(d.shape[1] - H):
-                batched.append(d[:,t])
-            batched = np.concatenate(batched, 0)
-        return batched
+        old_shape = list(data[key].shape)
+        shape = [old_shape[0] * old_shape[1]] + old_shape[2:]
+        return data[key].reshape(tuple(shape))
 
     # load dataset
     imgs, states, actions = [_flat_traj(k) for k in 
@@ -90,6 +94,33 @@ def state_action_dataset(fname, batch_size, H=30):
     test_data = DataLoader(ImageStateRegression(imgs, states, actions, _TEST_TRANSFORM), 
                             batch_size=256)
     return train_data, test_data, (train_mean, train_std)
+
+
+def image_goal_dataset(fname, batch_size, H=30):
+    data = np.load(fname)
+    def _flat_traj(split):
+        imgs = data['{}_images'.format(split)]
+        states = data['{}_states'.format(split)]
+        actions = data['{}_actions'.format(split)]
+
+        B, T, A = actions.shape
+        i, g, s, a = [], [], [], []
+        for t in range(T - H):
+            i.append(imgs[:,t])
+            g.append(imgs[:,-1])
+            s.append(states[:,t])
+            a.append(actions[:,t:t+H])
+        i, g, s, a = [np.concatenate(arr, 0) for arr in (i, g, s, a)]
+        return i, g, s, a
+
+    # load dataset
+    imgs, goals, states, actions = _flat_traj('train')
+    train_data = DataLoader(GoalCondBC(imgs, goals, states, actions, _TRAIN_TRANSFORM),
+                            batch_size=batch_size, shuffle=True, num_workers=5)
+    imgs, goals, states, actions = _flat_traj('test')
+    test_data = DataLoader(GoalCondBC(imgs, goals, states, actions, _TEST_TRANSFORM), 
+                            batch_size=256)
+    return train_data, test_data
 
 
 def traj_dataset(fname, batch_size):
