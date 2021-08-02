@@ -5,15 +5,17 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 
 
-_TRAIN_TRANSFORM = transforms.Compose([transforms.RandomResizedCrop((240, 320), (0.8, 1.0)),
-                                    transforms.RandomGrayscale(p=0.05),
-                                    transforms.ColorJitter(brightness=0.4, contrast=0.3, saturation=0.3, hue=0.3),
-                                    transforms.ToTensor(),
-                                    transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+def _TRAIN_TRANSFORM(h, w): 
+    return transforms.Compose([transforms.RandomResizedCrop((h, w), (0.8, 1.0)),
+                               transforms.RandomGrayscale(p=0.05),
+                               transforms.ColorJitter(brightness=0.4, contrast=0.3, saturation=0.3, hue=0.3),
+                               transforms.ToTensor(),
+                               transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                                                         std=[0.229, 0.224, 0.225])])
-_TEST_TRANSFORM = transforms.Compose([transforms.Resize((240, 320)),
-                                    transforms.ToTensor(),
-                                    transforms.Normalize(mean=[0.485, 0.456, 0.406], 
+def _TEST_TRANSFORM(h, w):
+    return transforms.Compose([transforms.Resize((h, w)),
+                               transforms.ToTensor(),
+                               transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                                                         std=[0.229, 0.224, 0.225])])
 
 
@@ -69,9 +71,11 @@ def pretext_dataset(fname, batch_size):
     data = np.load(fname)
 
     # load dataset
-    train_data = DataLoader(ImageRegression(data['train_imgs'], data['train_pos'], _TRAIN_TRANSFORM), 
+    train_imgs = data['train_imgs']
+    h, w = train_imgs.shape[1:3]
+    train_data = DataLoader(ImageRegression(train_imgs, data['train_pos'], _TRAIN_TRANSFORM(h, w)), 
                             batch_size=batch_size, shuffle=True, num_workers=5)
-    test_data = DataLoader(ImageRegression(data['test_imgs'], data['test_pos'], _TEST_TRANSFORM), 
+    test_data = DataLoader(ImageRegression(data['test_imgs'], data['test_pos'], _TEST_TRANSFORM(h, w)), 
                             batch_size=256)
     return train_data, test_data, data['mean_train_pos']
 
@@ -86,12 +90,13 @@ def state_action_dataset(fname, batch_size, H=30):
     # load dataset
     imgs, states, actions = [_flat_traj(k) for k in 
                                 ('train_images', 'train_states', 'train_actions')]
+    h, w = train_imgs.shape[1:3]
     train_mean, train_std = np.mean(actions, axis=0), np.std(actions, axis=0)
-    train_data = DataLoader(ImageStateRegression(imgs, states, actions, _TRAIN_TRANSFORM),
+    train_data = DataLoader(ImageStateRegression(imgs, states, actions, _TRAIN_TRANSFORM(h, w)),
                             batch_size=batch_size, shuffle=True, num_workers=5)
     imgs, states, actions = [_flat_traj(k) for k in 
                                 ('test_images', 'test_states', 'test_actions')]
-    test_data = DataLoader(ImageStateRegression(imgs, states, actions, _TEST_TRANSFORM), 
+    test_data = DataLoader(ImageStateRegression(imgs, states, actions, _TEST_TRANSFORM(h, w)), 
                             batch_size=256)
     return train_data, test_data, (train_mean, train_std)
 
@@ -115,10 +120,11 @@ def image_goal_dataset(fname, batch_size, H=30):
 
     # load dataset
     imgs, goals, states, actions = _flat_traj('train')
-    train_data = DataLoader(GoalCondBC(imgs, goals, states, actions, _TRAIN_TRANSFORM),
+    h, w = imgs.shape[2:4]
+    train_data = DataLoader(GoalCondBC(imgs, goals, states, actions, _TRAIN_TRANSFORM(h, w)),
                             batch_size=batch_size, shuffle=True, num_workers=5)
     imgs, goals, states, actions = _flat_traj('test')
-    test_data = DataLoader(GoalCondBC(imgs, goals, states, actions, _TEST_TRANSFORM), 
+    test_data = DataLoader(GoalCondBC(imgs, goals, states, actions, _TEST_TRANSFORM(h, w)), 
                             batch_size=256)
     return train_data, test_data
 
@@ -129,10 +135,12 @@ def traj_dataset(fname, batch_size):
     # load dataset
     imgs, states, actions = data['train_images'][:,0], data['train_states'][:,0], \
                             data['train_actions']
-    train_data = DataLoader(ImageStateRegression(imgs, states, actions, _TRAIN_TRANSFORM),
+    h, w = imgs.shape[1:3]
+    train_data = DataLoader(ImageStateRegression(imgs, states, actions, _TRAIN_TRANSFORM(h, w)),
                             batch_size=batch_size, shuffle=True, num_workers=5)
     imgs, states, actions = data['test_images'][:,0], data['test_states'][:,0], \
                             data['test_actions']
-    test_data = DataLoader(ImageStateRegression(imgs, states, actions, _TEST_TRANSFORM), 
+    test_data = DataLoader(ImageStateRegression(imgs, states, actions, _TEST_TRANSFORM(h,w)), 
                             batch_size=256)
     return train_data, test_data
+
