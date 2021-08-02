@@ -12,9 +12,8 @@ def _TRAIN_TRANSFORM(h, w):
                                transforms.ToTensor(),
                                transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                                                         std=[0.229, 0.224, 0.225])])
-def _TEST_TRANSFORM(h, w):
-    return transforms.Compose([transforms.Resize((h, w)),
-                               transforms.ToTensor(),
+def _TEST_TRANSFORM(_, __):
+    return transforms.Compose([transforms.ToTensor(),
                                transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                                                         std=[0.229, 0.224, 0.225])])
 
