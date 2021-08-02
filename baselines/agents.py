@@ -21,6 +21,9 @@ class ClosedLoopAgent(Agent):
         self._t, self._cache = 0, None
 
     def forward(self, image, robot_state):
+        if self._H == 1:
+            return self._pi(image, robot_state)
+
         index = self._t % self._H
         if index == 0:
             self._cache = self._pi(image, robot_state).detach()

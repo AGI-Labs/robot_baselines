@@ -22,7 +22,7 @@ class Metric:
 
 
 def img2tensor(image):
-    image = cv2.resize(image, (320, 240), interpolation=cv2.INTER_AREA)
+    image = cv2.resize(image, (160, 120), interpolation=cv2.INTER_AREA)
     image = image[:,:,::-1].astype(np.float32) / 255.0
     image -= np.array([0.485, 0.456, 0.406]).reshape((1,1,3))
     image /= np.array([0.229, 0.224, 0.225]).reshape((1,1,3))
