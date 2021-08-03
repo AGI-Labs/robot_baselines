@@ -5,14 +5,12 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 
 
-_TRAIN_TRANSFORM = transforms.Compose([transforms.RandomResizedCrop((240, 320), (0.8, 1.0)),
-                                    transforms.RandomGrayscale(p=0.05),
+_TRAIN_TRANSFORM = transforms.Compose([transforms.RandomGrayscale(p=0.05),
                                     transforms.ColorJitter(brightness=0.4, contrast=0.3, saturation=0.3, hue=0.3),
                                     transforms.ToTensor(),
                                     transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                                                         std=[0.229, 0.224, 0.225])])
-_TEST_TRANSFORM = transforms.Compose([transforms.Resize((240, 320)),
-                                    transforms.ToTensor(),
+_TEST_TRANSFORM = transforms.Compose([transforms.ToTensor(),
                                     transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                                                         std=[0.229, 0.224, 0.225])])
 
@@ -51,6 +49,34 @@ class ImageStateRegression(ImageRegression):
         return img, state, target
 
 
+class SnippetDataset(Dataset):
+    def __init__(self, images, states, targets, H=10, transform=None):
+        super().__init__()
+        self._H, self._transform = H, transform
+        self._images, self._states = images, states
+        self._targets = targets
+    
+    def __len__(self):
+        B, T = self._images.shape[:2]
+        return B * (T - self._H + 1)
+
+    def __getitem__(self, idx):
+        if torch.is_tensor(idx):
+            idx = idx.tolist()
+        
+        b, t = idx % self._images.shape[0], int(idx // self._images.shape[0])
+        states = self._states[b,t:t+self._H]
+        targets = self._targets[b,t:t+self._H]
+        images = self._images[b,t:t+self._H]
+        import pdb; pdb.set_trace()
+        if self._transform is not None:
+            img_flat = np.concatenate([i for i in images], 0)
+            img_flat = self._transform(Image.fromarray(img_flat))
+            imgs = [i[None] for i in torch.chunk(img_flat, chunks=self._H, dim=1)]
+            images = torch.cat(imgs, 0)
+        return images, states, targets
+
+
 class GoalCondBC(ImageStateRegression):
     def __init__(self, images, goals, states, actions, transform=None):
         super().__init__(images, states, actions, transform)
@@ -76,7 +102,7 @@ def pretext_dataset(fname, batch_size):
     return train_data, test_data, data['mean_train_pos']
 
 
-def state_action_dataset(fname, batch_size, H=30):
+def state_action_dataset(fname, batch_size):
     data = np.load(fname)
     def _flat_traj(key):
         old_shape = list(data[key].shape)
@@ -94,6 +120,17 @@ def state_action_dataset(fname, batch_size, H=30):
     test_data = DataLoader(ImageStateRegression(imgs, states, actions, _TEST_TRANSFORM), 
                             batch_size=256)
     return train_data, test_data, (train_mean, train_std)
+
+
+def snippet_dataset(fname, batch_size, H):
+    data = np.load(fname)
+    images, states, actions = data['train_images'], data['train_states'], data['train_actions']
+    train_data = DataLoader(SnippetDataset(images, states, actions, H, _TRAIN_TRANSFORM),
+                            batch_size=batch_size, shuffle=True, num_workers=0)
+    images, states, actions = data['test_images'], data['test_states'], data['test_actions']
+    test_data = DataLoader(SnippetDataset(images, states, actions, H, _TEST_TRANSFORM),
+                            batch_size=20)
+    return train_data, test_data
 
 
 def image_goal_dataset(fname, batch_size, H=30):
