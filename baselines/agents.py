@@ -11,6 +11,7 @@ class Agent(nn.Module):
     def forward(self, image, robot_state):
         raise NotImplementedError
 
+
 class ClosedLoopAgent(Agent):
     def __init__(self, policy_network, H=30):
         super().__init__()
@@ -29,6 +30,20 @@ class ClosedLoopAgent(Agent):
             self._cache = self._pi(image, robot_state).detach()
         self._t += 1
         return self._cache[:,index].detach()
+
+
+class RNNAgent(Agent):
+    def __init__(self, policy_network, _=30):
+        super().__init__()
+        self._pi = policy_network
+        self._memory = None
+    
+    def reset(self):
+        self._memory = None
+
+    def forward(self, image, robot_state):
+        ac, self._memory = self._pi(image, robot_state, self._memory, True)
+        return ac
 
 
 class OpenLoopAgent(Agent):

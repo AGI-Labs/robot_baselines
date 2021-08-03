@@ -66,16 +66,23 @@ class CNNPolicy(nn.Module):
 
 
 class RNNPolicy(nn.Module):
-    def __init__(self, features, adim=7, H=1):
+    def __init__(self, features, adim=7, _=1):
         super().__init__()
         self._features = features
         self._rnn = nn.LSTM(256, 256, 1, batch_first=True)
         self._pi = nn.Linear(256, adim)
     
-    def forward(self, images, _):
-        B, T, C, H, W = images.shape
-        feat = self._features(images.reshape((B * T, C, H, W))).reshape((B, T, 256))
-        feat, _ = self._rnn(feat)
+    def forward(self, images, _, memory=None, ret_mem=False):
+        if len(images.shape) == 5:
+            B, T, C, H, W = images.shape
+            feat = self._features(images.reshape((B * T, C, H, W))).reshape((B, T, 256))
+        else:
+            feat = self._features(images)[:,None]
+        
+        feat, memory = self._rnn(feat, memory)
+        feat = feat if len(images.shape) == 5 else feat[:,-1]
+        if ret_mem:
+            return self._pi(feat), memory
         return self._pi(feat)
 
 
