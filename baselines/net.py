@@ -64,6 +64,21 @@ class CNNPolicy(nn.Module):
             return self._pi(feat).reshape((-1, self._H, self._adim))
         return self._pi(feat).reshape((-1, self._adim))
 
+
+class RNNPolicy(nn.Module):
+    def __init__(self, features, adim=7, H=1):
+        super().__init__()
+        self._features = features
+        self._rnn = nn.LSTM(256, 256, 1, batch_first=True)
+        self._pi = nn.Linear(256, adim)
+    
+    def forward(self, images, _):
+        B, T, C, H, W = images.shape
+        feat = self._features(images.reshape((B * T, C, H, W))).reshape((B, T, 256))
+        feat, _ = self._rnn(feat)
+        return self._pi(feat)
+
+
 class CNNGoalPolicy(nn.Module):
     def __init__(self, features, adim=7, H=1):
         super().__init__()

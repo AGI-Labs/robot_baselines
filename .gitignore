@@ -4,3 +4,6 @@ models/*
 *.egg-info/*
 data/*
 __pycache__
+submit*.py
+submitit/*
+submitit

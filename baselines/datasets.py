@@ -5,15 +5,6 @@ from torchvision import transforms
 from torch.utils.data import Dataset, DataLoader
 
 
-<<<<<<< HEAD
-_TRAIN_TRANSFORM = transforms.Compose([transforms.RandomGrayscale(p=0.05),
-                                    transforms.ColorJitter(brightness=0.4, contrast=0.3, saturation=0.3, hue=0.3),
-                                    transforms.ToTensor(),
-                                    transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-                                                        std=[0.229, 0.224, 0.225])])
-_TEST_TRANSFORM = transforms.Compose([transforms.ToTensor(),
-                                    transforms.Normalize(mean=[0.485, 0.456, 0.406], 
-=======
 def _TRAIN_TRANSFORM(h, w): 
     return transforms.Compose([transforms.RandomResizedCrop((h, w), (0.8, 1.0)),
                                transforms.RandomGrayscale(p=0.05),
@@ -21,10 +12,10 @@ def _TRAIN_TRANSFORM(h, w):
                                transforms.ToTensor(),
                                transforms.Normalize(mean=[0.485, 0.456, 0.406], 
                                                         std=[0.229, 0.224, 0.225])])
-def _TEST_TRANSFORM(_, __):
-    return transforms.Compose([transforms.ToTensor(),
+def _TEST_TRANSFORM(h, w):
+    return transforms.Compose([transforms.Resize((h, w)),
+                               transforms.ToTensor(),
                                transforms.Normalize(mean=[0.485, 0.456, 0.406], 
->>>>>>> 14321dbe9fb0baa12f405d5f2a410ba5dd32af6c
                                                         std=[0.229, 0.224, 0.225])])
 
 
@@ -81,12 +72,9 @@ class SnippetDataset(Dataset):
         states = self._states[b,t:t+self._H]
         targets = self._targets[b,t:t+self._H]
         images = self._images[b,t:t+self._H]
-        import pdb; pdb.set_trace()
         if self._transform is not None:
-            img_flat = np.concatenate([i for i in images], 0)
-            img_flat = self._transform(Image.fromarray(img_flat))
-            imgs = [i[None] for i in torch.chunk(img_flat, chunks=self._H, dim=1)]
-            images = torch.cat(imgs, 0)
+            images = [self._transform(Image.fromarray(i))[None] for i in images]
+            images = torch.cat(images, 0)
         return images, states, targets
 
 
@@ -127,7 +115,7 @@ def state_action_dataset(fname, batch_size):
     # load dataset
     imgs, states, actions = [_flat_traj(k) for k in 
                                 ('train_images', 'train_states', 'train_actions')]
-    h, w = train_imgs.shape[1:3]
+    h, w = imgs.shape[1:3]
     train_mean, train_std = np.mean(actions, axis=0), np.std(actions, axis=0)
     train_data = DataLoader(ImageStateRegression(imgs, states, actions, _TRAIN_TRANSFORM(h, w)),
                             batch_size=batch_size, shuffle=True, num_workers=5)
@@ -141,10 +129,11 @@ def state_action_dataset(fname, batch_size):
 def snippet_dataset(fname, batch_size, H):
     data = np.load(fname)
     images, states, actions = data['train_images'], data['train_states'], data['train_actions']
-    train_data = DataLoader(SnippetDataset(images, states, actions, H, _TRAIN_TRANSFORM),
-                            batch_size=batch_size, shuffle=True, num_workers=0)
+    h, w = images.shape[2:4]
+    train_data = DataLoader(SnippetDataset(images, states, actions, H, _TRAIN_TRANSFORM(h, w)),
+                            batch_size=batch_size, shuffle=True, num_workers=10)
     images, states, actions = data['test_images'], data['test_states'], data['test_actions']
-    test_data = DataLoader(SnippetDataset(images, states, actions, H, _TEST_TRANSFORM),
+    test_data = DataLoader(SnippetDataset(images, states, actions, H, _TEST_TRANSFORM(h, w)),
                             batch_size=20)
     return train_data, test_data
 
