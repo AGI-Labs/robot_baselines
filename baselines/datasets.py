@@ -54,21 +54,24 @@ class ImageStateRegression(ImageRegression):
 
 
 class SnippetDataset(Dataset):
-    def __init__(self, images, states, targets, H=10, transform=None):
+    def __init__(self, images, states, targets, starts, H=10, transform=None):
         super().__init__()
         self._H, self._transform = H, transform
         self._images, self._states = images, states
         self._targets = targets
+
+        self._starts, end = [], self._images.shape[1] - H
+        for i, start in enumerate(starts):
+            self._starts.extend([(i, s) for s in range(start, end + 1)])
     
     def __len__(self):
-        B, T = self._images.shape[:2]
-        return B * (T - self._H + 1)
+        return len(self._starts)
 
     def __getitem__(self, idx):
         if torch.is_tensor(idx):
             idx = idx.tolist()
         
-        b, t = idx % self._images.shape[0], int(idx // self._images.shape[0])
+        b, t = self._starts[idx]
         states = self._states[b,t:t+self._H]
         targets = self._targets[b,t:t+self._H]
         images = self._images[b,t:t+self._H]
@@ -107,19 +110,21 @@ def pretext_dataset(fname, batch_size):
 
 def state_action_dataset(fname, batch_size):
     data = np.load(fname)
-    def _flat_traj(key):
-        old_shape = list(data[key].shape)
-        shape = [old_shape[0] * old_shape[1]] + old_shape[2:]
-        return data[key].reshape(tuple(shape))
+    def _flat_traj(key, starts):
+        d, d_flat = data[key], []
+        for i, s in enumerate(starts):
+            d_flat.append(d[i, s:])
+        d_flat = np.concatenate(d_flat, 0)
+        return d_flat
 
     # load dataset
-    imgs, states, actions = [_flat_traj(k) for k in 
+    imgs, states, actions = [_flat_traj(k, data['train_start']) for k in 
                                 ('train_images', 'train_states', 'train_actions')]
     h, w = imgs.shape[1:3]
     train_mean, train_std = np.mean(actions, axis=0), np.std(actions, axis=0)
     train_data = DataLoader(ImageStateRegression(imgs, states, actions, _TRAIN_TRANSFORM(h, w)),
                             batch_size=batch_size, shuffle=True, num_workers=5)
-    imgs, states, actions = [_flat_traj(k) for k in 
+    imgs, states, actions = [_flat_traj(k, data['test_start']) for k in 
                                 ('test_images', 'test_states', 'test_actions')]
     test_data = DataLoader(ImageStateRegression(imgs, states, actions, _TEST_TRANSFORM(h, w)), 
                             batch_size=256)
@@ -129,11 +134,13 @@ def state_action_dataset(fname, batch_size):
 def snippet_dataset(fname, batch_size, H):
     data = np.load(fname)
     images, states, actions = data['train_images'], data['train_states'], data['train_actions']
+    starts = data['train_start']
     h, w = images.shape[2:4]
-    train_data = DataLoader(SnippetDataset(images, states, actions, H, _TRAIN_TRANSFORM(h, w)),
+    train_data = DataLoader(SnippetDataset(images, states, actions, starts, H, _TRAIN_TRANSFORM(h, w)),
                             batch_size=batch_size, shuffle=True, num_workers=10)
     images, states, actions = data['test_images'], data['test_states'], data['test_actions']
-    test_data = DataLoader(SnippetDataset(images, states, actions, H, _TEST_TRANSFORM(h, w)),
+    starts = data['test_start']
+    test_data = DataLoader(SnippetDataset(images, states, actions, starts, H, _TEST_TRANSFORM(h, w)),
                             batch_size=20)
     return train_data, test_data
 

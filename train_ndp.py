@@ -64,8 +64,8 @@ def train_ndp(args):
             acs_hat = acs_hat.cpu().numpy()
             acs = acs.cpu().numpy()
             plt.close()
-            fig, axs = plt.subplots(4, 7, figsize=(30, 15))
-            for k in range(4):
+            fig, axs = plt.subplots(min(4, acs.shape[0]), 7, figsize=(30, 15))
+            for k in range(axs.shape[0]):
                 for i in range(7):
                     axs[k, i].plot(acs_hat[k, :, i], label='global pol test')
                     axs[k, i].plot(acs[k, :, i], label='test')

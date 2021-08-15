@@ -66,7 +66,7 @@ class CNNPolicy(nn.Module):
 
 
 class RNNPolicy(nn.Module):
-    def __init__(self, features, adim=7, _=1):
+    def __init__(self, features, adim=7, H=None):
         super().__init__()
         self._features = features
         self._rnn = nn.LSTM(256, 256, 1, batch_first=True)
