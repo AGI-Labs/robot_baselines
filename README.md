@@ -3,7 +3,15 @@ Impelmentation for baseline agents used in the [RB2 benchmark](https://rb2.info/
 
 If you find this codebase useful please consider citing our paper
 ```
-ArXiV
+@inproceedings{dasari2021rb2,
+    title={RB2: Robotic Manipulation Benchmarking with a Twist},
+    author={Sudeep Dasari and Jianren Wang and Joyce Hong and Shikhar Bahl and Yixin Lin and Austin Wang and Abitha Thankaraj and Karanbir Chahal and Berk Calli and Saurabh Gupta and David Held and Lerrel Pinto and Deepak Pathak and Vikash Kumar and Abhinav Gupta},
+    year={2021},
+    eprint={2203.08098},
+    archivePrefix={arXiv},
+    primaryClass={cs.RO},
+    booktitle={NeurIPS 2021 Datasets and Benchmarks Track}
+}
 ```
 
 ## Installation
